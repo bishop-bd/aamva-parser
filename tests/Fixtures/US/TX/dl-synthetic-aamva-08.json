@@ -1,0 +1,36 @@
+{
+  "jurisdiction": "TX",
+  "country": "USA",
+  "cardType": "DL",
+  "issueYears": "synthetic",
+  "aamvaVersion": 8,
+  "jurisdictionVersion": 0,
+  "status": "synthetic",
+  "provenance": "Generated fixture containing no real personal data",
+  "encoding": "raw",
+  "payload": "@\n\u001e\rANSI 636026080001DL00320038DLDCSMOTORIST\nDACJANE\nDAQSYNTHETIC-TX\n",
+  "expected": {
+    "metadata": {
+      "complianceIndicator": true,
+      "fileType": "ANSI",
+      "issuerIdentificationNumber": "636026",
+      "aamvaVersion": 8,
+      "standardPublicationYear": 2016,
+      "jurisdictionVersion": 0,
+      "declaredSubfileCount": 1
+    },
+    "normalized": {
+      "first": "JANE",
+      "last": "MOTORIST",
+      "state": ""
+    },
+    "elements": {
+      "DCS": ["MOTORIST"],
+      "DAC": ["JANE"],
+      "DAQ": ["SYNTHETIC-TX"]
+    },
+    "subfileTypes": ["DL"],
+    "warnings": []
+  }
+}
+

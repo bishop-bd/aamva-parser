@@ -140,6 +140,18 @@ HEX;
         $this->assertSame('', $result['fullEXP']);
     }
 
+    public function testItHandlesMixedAndRepeatedScannerSeparators(): void
+    {
+        $data = "@|\x1e\rANSI 636026100001DL00320047"
+            . "|\nDLDCSMOTORIST||\x1eDACJANE\r\nDAJTX|DAQ1234|\x04\0";
+
+        $result = (new Parser())->parse($data);
+
+        $this->assertSame('MOTORIST', $result['last']);
+        $this->assertSame('JANE', $result['first']);
+        $this->assertSame('TX', $result['state']);
+    }
+
     public function testItUsesLegacyCombinedAndGivenNameFields(): void
     {
         $combined = (new Parser())->parse("DAADOE,JANE,ELIZABETH\r\nDAQ1234");

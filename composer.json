@@ -1,6 +1,6 @@
 {
     "name": "bishopbd/aamva-parser",
-    "description": "Parses json formatted data from AAMVA formatted data on driver's license and ID card pdf417 scans.",
+    "description": "Parses AAMVA driver's license and ID card PDF417 payloads into normalized and lossless structured data.",
     "type": "library",
     "license": "MIT",
     "autoload": {

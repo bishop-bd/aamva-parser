@@ -27,6 +27,25 @@ echo $result['address'];
 $json = json_encode($result, JSON_THROW_ON_ERROR);
 ```
 
+For complete data, including fields that are unknown to this library or
+specific to an issuing jurisdiction, use `parseDocument()`:
+
+```php
+$document = (new Parser())->parseDocument($scannerData);
+
+$normalized = $document->normalized(); // Same result as parse().
+$allFields = $document->elements();     // Every designator and repeated value.
+$documentNumber = $document->value('DAQ');
+$metadata = $document->metadata();      // IIN, version/year, and subfile count.
+$subfiles = $document->subfiles();      // Fields retain subfile provenance.
+$warnings = $document->warnings();      // Non-fatal structural/version issues.
+```
+
+`ParsedDocument` is immutable and implements `JsonSerializable`. Unknown
+three-letter elements are preserved rather than discarded. `value()` returns
+the last occurrence for compatibility, while `values()` returns all repeated
+occurrences in source order.
+
 ### Scanner input formats
 
 `Parser::parse()` automatically accepts:
@@ -85,6 +104,21 @@ The parser accepts compliant control-character separators as well as common
 scanner transformations such as CR/LF records, pipe-delimited records, a UTF-8
 BOM, leading scanner text, omitted headers, and human-readable line formatting.
 It throws `InvalidArgumentException` when no AAMVA data elements can be found.
+
+## Compatibility scope
+
+The parser handles the AAMVA structure generically; this alone does not prove
+compatibility with every card issued by every jurisdiction. The auditable
+[DL/ID support matrix](docs/support-matrix.md) distinguishes synthetic
+structural tests from fixtures verified against issued cards. New approved
+fixtures placed under [`tests/Fixtures`](tests/Fixtures) are automatically run
+by PHPUnit. A state is not claimed as verified until current driver-license and
+identification-card fixtures satisfy that matrix's acceptance gate.
+
+The generated suite exercises `DL` and `ID` subfiles for all 50 states plus
+District of Columbia and ANSI header versions `00` through `10` (the 2000
+through 2025 standard generations). These are synthetic interoperability tests,
+not substitutes for authorized, de-identified samples from issuing agencies.
 
 ## Standard
 

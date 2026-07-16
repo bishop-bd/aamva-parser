@@ -31,41 +31,105 @@ class Parser
      */
     public function parse(string $aamvaData): array
     {
+        return $this->parseDocument($aamvaData)->normalized();
+    }
+
+    /** Parse an AAMVA payload without discarding metadata or unknown elements. */
+    public function parseDocument(string $aamvaData): ParsedDocument
+    {
         $data = $this->cleanInput(new DataHandler()->decode($aamvaData));
 
         $directory = [];
         $directoryEnd = 0;
+        $warnings = [];
+        $metadata = [
+            'complianceIndicator' => str_starts_with($data, '@'),
+            'fileType' => null,
+            'issuerIdentificationNumber' => null,
+            'aamvaVersion' => null,
+            'standardPublicationYear' => null,
+            'jurisdictionVersion' => null,
+            'declaredSubfileCount' => null,
+        ];
 
         if (preg_match('/ANSI ?/', $data, $fileTypeMatch, PREG_OFFSET_CAPTURE) === 1) {
             $ansiOffset = (int) $fileTypeMatch[0][1];
             $headerText = substr($data, $ansiOffset);
             if (preg_match('/^ANSI ?(\d{6})(\d{2})(\d{2})(\d{2})/', $headerText, $matches) === 1) {
+                $metadata = [
+                    'complianceIndicator' => $metadata['complianceIndicator'],
+                    'fileType' => 'ANSI',
+                    'issuerIdentificationNumber' => $matches[1],
+                    'aamvaVersion' => (int) $matches[2],
+                    'standardPublicationYear' => AamvaStandard::publicationYear((int) $matches[2]),
+                    'jurisdictionVersion' => (int) $matches[3],
+                    'declaredSubfileCount' => (int) $matches[4],
+                ];
                 $directoryEnd = $ansiOffset + strlen($matches[0]);
                 [$directory, $directoryEnd] = $this->readDirectory(
                     $data,
                     $directoryEnd,
                     (int) $matches[4],
                 );
+                if (count($directory) !== (int) $matches[4]) {
+                    $warnings[] = 'The subfile directory is shorter than its declared entry count.';
+                }
+                if (!AamvaStandard::isRecognized($metadata['aamvaVersion'])) {
+                    $warnings[] = sprintf(
+                        'AAMVA version %02d is not a recognized standard generation.',
+                        $metadata['aamvaVersion'],
+                    );
+                }
+            } else {
+                $metadata['fileType'] = 'ANSI';
+                $warnings[] = 'The ANSI header is incomplete or malformed.';
             }
         } elseif (preg_match('/AAMVA/', $data, $fileTypeMatch, PREG_OFFSET_CAPTURE) === 1) {
             // Legacy payloads used AAMVA instead of ANSI as the file type.
+            $metadata['fileType'] = 'AAMVA';
             $directoryEnd = (int) $fileTypeMatch[0][1] + strlen($fileTypeMatch[0][0]);
+        }
+
+        if ($metadata['fileType'] !== null && !$metadata['complianceIndicator']) {
+            $warnings[] = 'The payload has a header but no AAMVA compliance indicator.';
+        }
+
+        foreach ($directory as $entry) {
+            if ($entry['offset'] < 1 || $entry['offset'] > strlen($data)) {
+                $warnings[] = sprintf('Subfile %s has an out-of-range offset.', $entry['type']);
+            }
+            if ($entry['length'] < 1) {
+                $warnings[] = sprintf('Subfile %s has an invalid zero length.', $entry['type']);
+            }
         }
 
         $subfiles = $directory === []
             ? $this->parseLooseSubfiles($data, $directoryEnd)
-            : $this->parseDirectorySubfiles($data, $directory, $directoryEnd);
+            : $this->parseDirectorySubfiles($data, $directory, $directoryEnd, $warnings);
 
-        $fields = [];
+        $elements = [];
         foreach ($subfiles as $subfile) {
-            $fields = array_replace($fields, $subfile['fields']);
+            foreach ($subfile['elements'] as $designator => $values) {
+                $elements[$designator] = array_merge($elements[$designator] ?? [], $values);
+            }
         }
 
-        if ($fields === []) {
+        if ($elements === []) {
             throw new InvalidArgumentException('The value does not contain any AAMVA data elements.');
         }
 
-        return $this->normalize($fields);
+        $fields = array_map(
+            static fn (array $values): string => $values[array_key_last($values)],
+            $elements,
+        );
+
+        return new ParsedDocument(
+            $this->normalize($fields),
+            $elements,
+            $metadata,
+            $subfiles,
+            $warnings,
+        );
     }
 
     private function cleanInput(string $data): string
@@ -108,21 +172,37 @@ class Parser
 
     /**
      * @param list<array{type: string, offset: int, length: int}> $directory
-     * @return list<array{type: string, offset: int|null, length: int|null, fields: array<string, string>}>
+     * @return list<array{type: string, offset: int|null, length: int|null, elements: array<string, list<string>>}>
      */
-    private function parseDirectorySubfiles(string $data, array $directory, int $directoryEnd): array
+    private function parseDirectorySubfiles(
+        string $data,
+        array $directory,
+        int $directoryEnd,
+        array &$warnings,
+    ): array
     {
         $starts = [];
         $searchFrom = $directoryEnd;
 
         foreach ($directory as $index => $entry) {
             $expected = max(0, $entry['offset'] - 1);
-            $start = substr($data, $expected, 2) === $entry['type']
-                ? $expected
-                : strpos($data, $entry['type'], $searchFrom);
+            $start = false;
+            foreach (array_unique([$expected, $entry['offset']]) as $candidate) {
+                if (substr($data, $candidate, 2) === $entry['type']) {
+                    $start = $candidate;
+                    break;
+                }
+            }
+
+            if ($start === false) {
+                $start = strpos($data, $entry['type'], $searchFrom);
+            }
 
             if ($start === false) {
                 $start = $expected < strlen($data) ? $expected : $searchFrom;
+                $warnings[] = sprintf('Subfile %s could not be located at its declared offset.', $entry['type']);
+            } elseif ($start !== $expected && $start !== $entry['offset']) {
+                $warnings[] = sprintf('Subfile %s was recovered from an inaccurate offset.', $entry['type']);
             }
 
             $starts[$index] = $start;
@@ -136,6 +216,10 @@ class Parser
             $declaredEnd = min(strlen($data), $start + $entry['length']);
             $end = $nextStart !== null && $nextStart > $start ? $nextStart : $declaredEnd;
 
+            if ($nextStart !== null && $declaredEnd !== $nextStart) {
+                $warnings[] = sprintf('Subfile %s has an inaccurate declared length.', $entry['type']);
+            }
+
             // A number of issuers publish inaccurate lengths. Preserve the
             // final subfile through the end rather than silently dropping data.
             if ($index === array_key_last($directory)) {
@@ -147,7 +231,7 @@ class Parser
                 'type' => $entry['type'],
                 'offset' => $entry['offset'],
                 'length' => $entry['length'],
-                'fields' => $this->parseFields($payload, $entry['type']),
+                'elements' => $this->parseFields($payload, $entry['type']),
             ];
         }
 
@@ -155,7 +239,7 @@ class Parser
     }
 
     /**
-     * @return list<array{type: string, offset: int|null, length: int|null, fields: array<string, string>}>
+     * @return list<array{type: string, offset: int|null, length: int|null, elements: array<string, list<string>>}>
      */
     private function parseLooseSubfiles(string $data, int $headerEnd): array
     {
@@ -179,7 +263,7 @@ class Parser
                 continue;
             }
 
-            if (preg_match('/^.*?(DL|ID)([A-Z]{3}.*)$/s', $record, $prefixed) === 1) {
+            if (preg_match('/^(DL|ID)([A-Z]{3}.*)$/s', $record, $prefixed) === 1) {
                 $currentType = $prefixed[1];
                 $record = $prefixed[2];
             }
@@ -189,34 +273,34 @@ class Parser
             }
 
             $subfiles[$currentType] ??= $this->newLooseSubfile($currentType);
-            $subfiles[$currentType]['fields'][$fieldMatch[1]] = trim($fieldMatch[2]);
+            $subfiles[$currentType]['elements'][$fieldMatch[1]][] = trim($fieldMatch[2]);
         }
 
         return array_values($subfiles);
     }
 
-    /** @return array{type: string, offset: null, length: null, fields: array<string, string>} */
+    /** @return array{type: string, offset: null, length: null, elements: array<string, list<string>>} */
     private function newLooseSubfile(string $type): array
     {
-        return ['type' => $type, 'offset' => null, 'length' => null, 'fields' => []];
+        return ['type' => $type, 'offset' => null, 'length' => null, 'elements' => []];
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, list<string>> */
     private function parseFields(string $payload, string $subfileType): array
     {
         if (str_starts_with($payload, $subfileType)) {
             $payload = substr($payload, 2);
         }
 
-        $fields = [];
+        $elements = [];
         foreach ($this->records($payload) as $record) {
             $record = trim($record);
             if (preg_match('/^([A-Z]{3})(.*)$/s', $record, $matches) === 1) {
-                $fields[$matches[1]] = trim($matches[2]);
+                $elements[$matches[1]][] = trim($matches[2]);
             }
         }
 
-        return $fields;
+        return $elements;
     }
 
     /** @return list<string> */
