@@ -2,3 +2,5 @@ vendor/*
 .idea/*
 
 .phpunit.result.cache
+
+example.php
