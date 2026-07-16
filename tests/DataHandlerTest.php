@@ -30,7 +30,7 @@ final class DataHandlerTest extends TestCase
     public function testItAutoDecodesLayeredScannerData(): void
     {
         $handler = new DataHandler();
-        $raw = "@\n\x1e\rANSI 636005090001DL00310020DLDCSHICKERSON\n";
+        $raw = "@\n\x1e\rANSI 636005090001DL00310020DLDCSDOE\n";
         $hex = implode(' ', str_split(strtoupper(bin2hex(base64_encode($raw))), 2));
 
         $this->assertSame($raw, $handler->decode($hex));
