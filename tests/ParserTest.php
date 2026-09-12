@@ -59,6 +59,7 @@ AAMVA;
             'dobDD' => '15',
             'dobYYYY' => '1992',
             'fullEXP' => '20303112',
+            'fullDOB' => '19921507',
         ], $result);
     }
 
@@ -86,6 +87,7 @@ HEX;
             'dobDD' => '15',
             'dobYYYY' => '1992',
             'fullEXP' => '20303112',
+            'fullDOB' => '19921507',
         ];
 
         $this->assertSame($expected, $parser->parse($hex));
@@ -110,6 +112,7 @@ HEX;
         $this->assertSame('12', $result['dobMM']);
         $this->assertSame('25', $result['dobDD']);
         $this->assertSame('1990', $result['dobYYYY']);
+        $this->assertSame('19902512', $result['fullDOB']);
     }
 
     public function testItMergesRequestedDataFromMultipleSubfiles(): void
@@ -171,7 +174,7 @@ HEX;
 
         $this->assertSame([
             'first', 'last', 'mid', 'address', 'address2', 'city', 'state', 'zip',
-            'expMM', 'expDD', 'expYYYY', 'dobMM', 'dobDD', 'dobYYYY', 'fullEXP',
+            'expMM', 'expDD', 'expYYYY', 'dobMM', 'dobDD', 'dobYYYY', 'fullEXP', 'fullDOB',
         ], array_keys($result));
         $this->assertSame('', $result['address2']);
         $this->assertSame('', $result['expMM']);
@@ -211,4 +214,3 @@ HEX;
         return $prefix . $directory . $body;
     }
 }
-

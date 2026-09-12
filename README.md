@@ -92,13 +92,15 @@ string:
     'dobDD' => '15',
     'dobYYYY' => '1992',
     'fullEXP' => '20303112',
+    'fullDOB' => '19921507',
 ]
 ```
 
 Names and addresses are mapped from `DAC`, `DCS`, `DAD`, `DAG`, `DAH`, `DAI`,
 `DAJ`, and `DAK`. Legacy `DAA`, `DAB`, and `DCT` name fields are supported as
 fallbacks. Expiration (`DBA`) and birth (`DBB`) dates support both `MMDDYYYY`
-and `YYYYMMDD`. To match the output contract above, `fullEXP` is `YYYYDDMM`.
+and `YYYYMMDD`. To match the output contract above, `fullEXP` and `fullDOB`
+use `YYYYDDMM`. Missing or invalid dates produce empty strings.
 
 The parser accepts compliant control-character separators as well as common
 scanner transformations such as CR/LF records, pipe-delimited records, a UTF-8

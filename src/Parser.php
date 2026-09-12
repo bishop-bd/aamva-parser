@@ -26,7 +26,8 @@ class Parser
      *     dobMM: string,
      *     dobDD: string,
      *     dobYYYY: string,
-     *     fullEXP: string
+     *     fullEXP: string,
+     *     fullDOB: string
      * }
      */
     public function parse(string $aamvaData): array
@@ -317,7 +318,7 @@ class Parser
      *     first: string, last: string, mid: string, address: string,
      *     address2: string, city: string, state: string, zip: string,
      *     expMM: string, expDD: string, expYYYY: string,
-     *     dobMM: string, dobDD: string, dobYYYY: string, fullEXP: string
+     *     dobMM: string, dobDD: string, dobYYYY: string, fullEXP: string, fullDOB: string
      * }
      */
     private function normalize(array $fields): array
@@ -359,6 +360,7 @@ class Parser
             'dobDD' => $birthDate['day'],
             'dobYYYY' => $birthDate['year'],
             'fullEXP' => $expiration['year'] . $expiration['day'] . $expiration['month'],
+            'fullDOB' => $birthDate['year'] . $birthDate['day'] . $birthDate['month'],
         ]);
     }
 

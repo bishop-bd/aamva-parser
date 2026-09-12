@@ -14,3 +14,4 @@ $parsed = $parser->parse($byteDump);
 
 echo json_encode($parsed, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 
+print_r($parsed);
