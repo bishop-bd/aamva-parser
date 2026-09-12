@@ -322,19 +322,21 @@ class Parser
      */
     private function normalize(array $fields): array
     {
-        $first = trim($fields['DAC'] ?? '');
-        $last = trim($fields['DCS'] ?? $fields['DAB'] ?? '');
-        $middle = trim($fields['DAD'] ?? '');
+        $mapped = FieldMapping::map($fields);
+        $inputs = FieldMapping::map($fields, FieldMapping::INPUTS);
+        $first = $mapped['first'];
+        $last = $mapped['last'];
+        $middle = $mapped['mid'];
 
-        if (($first === '' || $last === '') && isset($fields['DAA'])) {
-            [$combinedLast, $combinedFirst, $combinedMiddle] = $this->splitCombinedName($fields['DAA']);
+        if (($first === '' || $last === '') && $inputs['combinedName'] !== '') {
+            [$combinedLast, $combinedFirst, $combinedMiddle] = $this->splitCombinedName($inputs['combinedName']);
             $last = $last !== '' ? $last : $combinedLast;
             $first = $first !== '' ? $first : $combinedFirst;
             $middle = $middle !== '' ? $middle : $combinedMiddle;
         }
 
-        if ($first === '' && isset($fields['DCT'])) {
-            $givenNames = preg_split('/\s+/', trim($fields['DCT']), 2) ?: [];
+        if ($first === '' && $inputs['givenNames'] !== '') {
+            $givenNames = preg_split('/\s+/', $inputs['givenNames'], 2) ?: [];
             $first = $givenNames[0] ?? '';
             $middle = $middle !== '' ? $middle : ($givenNames[1] ?? '');
         }
@@ -343,18 +345,13 @@ class Parser
             $middle = '';
         }
 
-        $expiration = $this->parseDate($fields['DBA'] ?? '');
-        $birthDate = $this->parseDate($fields['DBB'] ?? '');
+        $expiration = $this->parseDate($inputs['expirationDate']);
+        $birthDate = $this->parseDate($inputs['dateOfBirth']);
 
-        return [
+        return array_replace($mapped, [
             'first' => $first,
             'last' => $last,
             'mid' => $middle,
-            'address' => trim($fields['DAG'] ?? ''),
-            'address2' => trim($fields['DAH'] ?? ''),
-            'city' => trim($fields['DAI'] ?? ''),
-            'state' => trim($fields['DAJ'] ?? ''),
-            'zip' => trim($fields['DAK'] ?? ''),
             'expMM' => $expiration['month'],
             'expDD' => $expiration['day'],
             'expYYYY' => $expiration['year'],
@@ -362,7 +359,7 @@ class Parser
             'dobDD' => $birthDate['day'],
             'dobYYYY' => $birthDate['year'],
             'fullEXP' => $expiration['year'] . $expiration['day'] . $expiration['month'],
-        ];
+        ]);
     }
 
     /** @return array{string, string, string} */
