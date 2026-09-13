@@ -106,9 +106,9 @@ final class DataHandler
 
     private function looksLikeAamva(string $data): bool
     {
-        return preg_match('/@[\x00-\x20|]{0,4}(?:ANSI|AAMVA)/', $data) === 1
+        return preg_match('/@[\x00-\x20|]{0,4}(?:ANSI|AAMVA)/i', $data) === 1
             || preg_match(
-                '/(?:^|[\x00-\x20|])(?:DCS|DAC|DAD|DAG|DAH|DAI|DAJ|DAK|DBA|DBB)[^\x00-\x1F|]*/',
+                '/(?:^|[\x00-\x20|])(?:DL|ID)?(?:DAA|DAB|DCT|DCS|DAC|DAD|DAG|DAH|DAI|DAJ|DAK|DAQ|DBJ|DBA|DBB)[^\x00-\x1F|]*/i',
                 $data,
             ) === 1;
     }
